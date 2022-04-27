@@ -94,6 +94,17 @@ ATF_MAJOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\
 ATF_MINOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c8-9 )
 ATF_BUILD = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c10-17 )
 
+# function to copy output file to virtual machine shared folder
+define copy2VM_SHARED
+	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(notdir $(1)))
+	@cp -f $(1) $(VM_SHARED_FILE)
+	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
+		$(CHECKSUM_TOOL) $(VM_SHARED_FILE); \
+	else \
+		echo copy to: $(VM_SHARED_FILE) ; \
+	fi
+endef
+
 # Targets
 define HELP_MSG
 Ampere EDK2 Tools
@@ -137,6 +148,9 @@ clean:
 
 	@echo "Tianocore clean $(CUR_DIR)/Build..."
 	@rm -fr $(CUR_DIR)/Build
+
+	@echo "Ampere Tools clean $(CUR_DIR)/edk2-ampere-tools/toolchain..."
+	@rm -fr $(CUR_DIR)/edk2-ampere-tools/toolchain
 
 ## linuxboot_img		: Linuxboot image
 .PHONY: linuxboot_img
@@ -242,7 +256,7 @@ _tianocore_prepare: _check_source _check_tools _check_compiler _check_iasl
 
 _tianocore_sign_fd: _check_atf_tools
 	@echo "Creating certitficate for $(OUTPUT_FD_IMAGE)"
-	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
+	$(eval DBB_KEY := $(EDK2_PLATFORMS_PKG_DIR)/TestKeys/Dbb_AmpereTest.priv.pem)
 	@$(CERTTOOL) -n --ntfw-nvctr 0 --key-alg rsa --nt-fw-key $(DBB_KEY) --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE)
 	@$(FIPTOOL) create --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE) $(OUTPUT_FD_IMAGE).signed
 	@rm -fr $(OUTPUT_FD_IMAGE).crt
@@ -290,12 +304,38 @@ tianocore_img: _check_atf_slim _check_board_setting tianocore_fd
 	else \
 		cp $(OUTPUT_RAW_IMAGE) $(OUTPUT_IMAGE); \
 	fi
+ifneq ($(SPI_SIZE_MB),)
+	$(eval OUTPUT_IMAGE_BIN  := $(basename $(OUTPUT_IMAGE)).bin)
+	@dd bs=1M count=$(SPI_SIZE_MB) if=/dev/zero | tr "\000" "\377" > $(OUTPUT_IMAGE_BIN)
+ifeq ($(FAILSAFE_WORKAROUND),1)
+# 	override 0x114070 as a failsafe function workaround 
+	@echo -en "\x01\x00\x00\x00\xff\xff\x13\xc3" | dd bs=1 seek=1130608 conv=notrunc of=$(OUTPUT_IMAGE_BIN)
+endif
+# insert tiano image to a SPI ROM image	starte at offset 8x512KB=4MB
+	@dd conv=notrunc bs=8 seek=524288 if=$(OUTPUT_IMAGE) of=$(OUTPUT_IMAGE_BIN)
+endif	
+ifneq ($(wildcard $(PROGRAMMER_TOOL)),)
+ifneq ($(wildcard $(POWER_SCRIPT)),)
+	. $(POWER_SCRIPT) OFF
+endif	
+	$(PROGRAMMER_TOOL) -u $(OUTPUT_IMAGE) -a 0x400000 -e -v
+ifneq ($(wildcard $(POWER_SCRIPT)),)
+	. $(POWER_SCRIPT) ON
+endif	
+endif	
+ifneq ($(wildcard $(VM_SHARED_DIR)),)
+	$(call copy2VM_SHARED, $(OUTPUT_IMAGE))
+ifneq ($(SPI_SIZE_MB),)
+	$(call copy2VM_SHARED, $(OUTPUT_IMAGE_BIN))
+endif	
+	@date +%T
+endif	
 
 ## tianocore_capsule	: Tianocore Capsule image
 .PHONY: tianocore_capsule
 tianocore_capsule: tianocore_img
 	@echo "Build Tianocore $(BUILD_VARIANT_UFL) Capsule..."
-	$(eval DBU_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
+	$(eval DBU_KEY := $(EDK2_PLATFORMS_PKG_DIR)/TestKeys/Dbu_AmpereTest.priv.pem)
 # *atfedk2.img.signed was chosen to be backward compatible with release 1.01
 	$(eval TIANOCORE_ATF_IMAGE := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BOARD_NAME)_atfedk2.img.signed)
 	$(eval OUTPUT_UEFI_ATF_CAPSULE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).cap)
@@ -328,9 +368,16 @@ tianocore_capsule: tianocore_img
 		-D UEFI_ATF_IMAGE=$(TIANOCORE_ATF_IMAGE) \
 		-D SCP_IMAGE=$(SCP_IMAGE) \
 		-p Platform/Ampere/$(BOARD_NAME_UFL)Pkg/$(BOARD_NAME_UFL)Capsule.dsc
-	@cp -f $(EDK2_FV_DIR)/JADEUEFIATFFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_UEFI_ATF_CAPSULE)
+	@cp -f $(EDK2_FV_DIR)/$(BOARD_NAME_UPPER)UEFIATFFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_UEFI_ATF_CAPSULE)
 	@cp -f $(EDK2_FV_DIR)/JADESCPFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_SCP_CAPSULE)
 	@cp -f $(EDK2_AARCH64_DIR)/CapsuleApp.efi $(OUTPUT_CAPSULE_APP)
 	@rm -f $(OUTPUT_RAW_IMAGE).sig $(OUTPUT_RAW_IMAGE).signed $(OUTPUT_RAW_IMAGE)
+
+ifneq ($(wildcard $(VM_SHARED_DIR)),)
+	$(call copy2VM_SHARED, $(OUTPUT_UEFI_ATF_CAPSULE))
+	$(call copy2VM_SHARED, $(OUTPUT_SCP_CAPSULE))
+	$(call copy2VM_SHARED, $(OUTPUT_CAPSULE_APP))
+	@date +%T
+endif	
 
 # end of makefile
