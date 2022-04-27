@@ -11,11 +11,19 @@
 GOLANG_VER=1.18.4
 TOOLS_DIR="`dirname $0`"
 TOOLS_DIR="`readlink -f \"$TOOLS_DIR\"`"
+if [ $TOOLS_DIR == /usr/bin ]; then
+    TOOLS_DIR=$PWD
+fi
 export TOOLS_DIR
 
 . "$TOOLS_DIR"/common-functions
 
+OPATH=$PATH
 PLATFORM_LOWER="jade"
+#
+# install generic cross compiler, ampere compiler will cause system hang during boot
+# 
+sudo apt install -y gcc-aarch64-linux-gnu
 
 if uname -m | grep -q "x86_64"; then
     CROSS_COMPILE=${CROSS_COMPILE:-aarch64-linux-gnu-}
@@ -50,7 +58,10 @@ make -C $LINUBOOT_DIR/mainboards/ampere/${PLATFORM_LOWER} fetch flashkernel ARCH
 RESULT=$?
 if [ $RESULT -ne 0 ]; then
     echo "ERROR: compile LinuxBoot binaries issue" >&2
-    exit 1
+else    
+    echo "Results: $MAINBOARDS_DIR/ampere/${PLATFORM_LOWER}/flashkernel"
+  	date +%T
+    cp $MAINBOARDS_DIR/ampere/${PLATFORM_LOWER}/flashkernel ../
 fi
 echo "Results: $LINUBOOT_DIR/mainboards/ampere/${PLATFORM_LOWER}/flashkernel"
 ls -l $LINUBOOT_DIR/mainboards/ampere/${PLATFORM_LOWER}/flashkernel
