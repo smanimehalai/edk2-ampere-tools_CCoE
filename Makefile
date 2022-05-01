@@ -105,6 +105,26 @@ define copy2VM_SHARED
 	fi
 endef
 
+define copy2VM_SHARED_RELEASE
+	$(call copy2VM_SHARED, $(1))
+	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(notdir $(1)))
+	$(eval CHECKSUM_FILE := $(VM_SHARED_DIR)/$(notdir $(1)).txt)
+	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
+		echo "===============================================================================" > $(CHECKSUM_FILE); \
+		echo "Platform                : Ampere Altra/Max" >> $(CHECKSUM_FILE); \
+		echo "Supported SPI ROM       : MX25L25673G" >> $(CHECKSUM_FILE); \
+		echo "===============================================================================" >> $(CHECKSUM_FILE); \
+		echo "BIOS BIN FIle : "$(notdir $(1)) >> $(CHECKSUM_FILE); \
+		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(CHECKSUM_FILE); \
+		echo "Release Time  : $(shell date '+%T')" >> $(CHECKSUM_FILE); \
+		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(VM_SHARED_FILE) | cut -d ' ' -f 1) >> $(CHECKSUM_FILE); \
+		echo "POST Message  : "$(VER).$(BUILD)" Build $(shell date '+%Y%m%d')" >> $(CHECKSUM_FILE); \
+		echo "Size          : 32MB" >> $(CHECKSUM_FILE); \
+		echo "===============================================================================" >> $(CHECKSUM_FILE); \
+		echo "===============================================================================" >> $(CHECKSUM_FILE); \
+	fi
+endef
+
 # Targets
 define HELP_MSG
 Ampere EDK2 Tools
@@ -281,6 +301,19 @@ tianocore_fd: _tianocore_prepare
 		-p $(DSC_FILE)
 	@mkdir -p $(OUTPUT_BIN_DIR)
 	@cp -f $(EDK2_FD_IMAGE) $(OUTPUT_FD_IMAGE)
+
+## history		: Extra copy to workaround ubuntu file cached problem
+.PHONY: history
+history:
+	@echo "Extra copy action to workaround Ubuntu file cached causing checksum error."
+ifneq ($(SPI_SIZE_MB),)
+	$(eval OUTPUT_IMAGE_BIN  := $(basename $(OUTPUT_IMAGE)).bin)
+ifneq ($(wildcard $(VM_SHARED_DIR)),)
+ifneq ($(SPI_SIZE_MB),)
+	$(call copy2VM_SHARED_RELEASE, $(OUTPUT_IMAGE_BIN))
+endif	
+endif	
+endif	
 
 ## tianocore_img		: Tianocore Integrated image
 .PHONY: tianocore_img
