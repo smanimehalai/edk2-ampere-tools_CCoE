@@ -296,7 +296,7 @@ tianocore_fd: _tianocore_prepare
 	fi
 
 	. $(EDK2_SRC_DIR)/edksetup.sh && build -a AARCH64 -t $(EDK2_GCC_TAG) -b $(BUILD_VARIANT) -n $(NUM_THREADS) \
-		-D FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d')" \
+		-D FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') ATF $(ATF_MAJOR).$(ATF_MINOR)" \
 		-D MAJOR_VER=$(MAJOR_VER) -D MINOR_VER=$(MINOR_VER) -D SECURE_BOOT_ENABLE \
 		-p $(DSC_FILE)
 	@mkdir -p $(OUTPUT_BIN_DIR)
