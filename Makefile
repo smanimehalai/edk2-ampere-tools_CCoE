@@ -27,7 +27,7 @@ EDK2_PLATFORMS_SRC_DIR := $(ROOT_DIR)/edk2-platforms
 EDK2_FEATURES_INTEL_DIR := $(EDK2_PLATFORMS_SRC_DIR)/Features/Intel
 EDK2_PLATFORMS_PKG_DIR := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg
 REQUIRE_EDK2_SRC := $(EDK2_SRC_DIR) $(EDK2_PLATFORMS_SRC_DIR)$(if $(wildcard $(EDK2_NON_OSI_SRC_DIR)), $(EDK2_NON_OSI_SRC_DIR),) $(EDK2_FEATURES_INTEL_DIR)
-
+WORK_LINUXBOOT_BIN := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/LinuxBootPkg/AArch64/flashkernel
 ATF_TOOLS_DIR := $(SCRIPTS_DIR)/toolchain/atf-tools
 COMPILER_DIR := $(SCRIPTS_DIR)/toolchain/ampere
 IASL_DIR := $(SCRIPTS_DIR)/toolchain/iasl
@@ -295,7 +295,7 @@ tianocore_fd: _tianocore_prepare
 	$(eval EDK2_FD_IMAGE := $(EDK2_FV_DIR)/BL33_$(BOARD_NAME_UPPER)_UEFI.fd)
 
 	@if [ $(BUILD_LINUXBOOT) -eq 1 ]; then \
-		cp $(LINUXBOOT_BIN) $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/LinuxBootPkg/AArch64/flashkernel; \
+		cp $(LINUXBOOT_BIN) $(WORK_LINUXBOOT_BIN); \
 	fi
 
 	. $(EDK2_SRC_DIR)/edksetup.sh && build -a AARCH64 -t $(EDK2_GCC_TAG) -b $(BUILD_VARIANT) -n $(NUM_THREADS) \
@@ -304,6 +304,10 @@ tianocore_fd: _tianocore_prepare
 		-p $(DSC_FILE)
 	@mkdir -p $(OUTPUT_BIN_DIR)
 	@cp -f $(EDK2_FD_IMAGE) $(OUTPUT_FD_IMAGE)
+
+	@if [ $(BUILD_LINUXBOOT) -eq 1 ]; then \
+		rm -f $(WORK_LINUXBOOT_BIN); \
+	fi
 
 ## history		: Extra copy to workaround ubuntu file cached problem
 .PHONY: history
