@@ -90,6 +90,7 @@ BOARD_SETTING ?= $(word 1,$(foreach iter,$(BOARD_SETTING_FILES), $(if $(wildcard
 ATF_MAJOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c7 )
 ATF_MINOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c8-9 )
 ATF_BUILD = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c10-17 )
+FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') ATF $(ATF_MAJOR).$(ATF_MINOR)"
 
 # function to copy output file to virtual machine shared folder
 define copy2VM_SHARED
@@ -115,7 +116,7 @@ define copy2VM_SHARED_RELEASE
 		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(CHECKSUM_FILE); \
 		echo "Release Time  : $(shell date '+%T')" >> $(CHECKSUM_FILE); \
 		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(VM_SHARED_FILE) | cut -d ' ' -f 1) >> $(CHECKSUM_FILE); \
-		echo "POST Message  : "$(VER).$(BUILD)" Build $(shell date '+%Y%m%d')" >> $(CHECKSUM_FILE); \
+		echo "POST Message  : "$(FIRMWARE_VER) >> $(CHECKSUM_FILE); \
 		echo "Size          : 32MB" >> $(CHECKSUM_FILE); \
 		echo "===============================================================================" >> $(CHECKSUM_FILE); \
 		echo "===============================================================================" >> $(CHECKSUM_FILE); \
@@ -340,7 +341,7 @@ tianocore_fd: _tianocore_prepare
 	fi
 
 	. $(EDK2_SRC_DIR)/edksetup.sh && build -a AARCH64 -t $(EDK2_GCC_TAG) -b $(BUILD_VARIANT) -n $(NUM_THREADS) \
-		-D FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') ATF $(ATF_MAJOR).$(ATF_MINOR)" \
+		-D FIRMWARE_VER=$(FIRMWARE_VER) \
 		-D MAJOR_VER=$(MAJOR_VER) -D MINOR_VER=$(MINOR_VER) -D SECURE_BOOT_ENABLE \
 		-p $(DSC_FILE)
 	@mkdir -p $(OUTPUT_BIN_DIR)
