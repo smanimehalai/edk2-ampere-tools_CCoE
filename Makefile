@@ -80,10 +80,11 @@ IASL_VER ?= $(if $(VER_GT_104),$(DEFAULT_IASL_VER),20200110)
 # File path variables
 LINUXBOOT_FMT := $(if $(shell echo $(BUILD_LINUXBOOT) | grep -w 1),_linuxboot,)
 OUTPUT_VARIANT := $(if $(shell echo $(DEBUG) | grep -w 1),_debug,)
-OUTPUT_BIN_DIR := $(if $(DEST_DIR),$(DEST_DIR),$(CUR_DIR)/BUILDS/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD))
+OUTPUT_BASENAME = $(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD)
+OUTPUT_BIN_DIR := $(if $(DEST_DIR),$(DEST_DIR),$(CUR_DIR)/BUILDS/$(OUTPUT_BASENAME))
 
-OUTPUT_IMAGE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).img
-OUTPUT_RAW_IMAGE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).img.raw
+OUTPUT_IMAGE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).img
+OUTPUT_RAW_IMAGE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).img.raw
 OUTPUT_FD_IMAGE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).fd
 OUTPUT_BOARD_SETTING_BIN := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_board_setting.bin
 
@@ -97,7 +98,8 @@ FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') A
 
 # function to copy output file to virtual machine shared folder
 define copy2VM_SHARED
-	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(notdir $(1)))
+	@mkdir -p $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)
+	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)))
 	@cp -f $(1) $(VM_SHARED_FILE)
 	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
 		$(CHECKSUM_TOOL) $(VM_SHARED_FILE); \
@@ -108,21 +110,21 @@ endef
 
 define copy2VM_SHARED_RELEASE
 	$(call copy2VM_SHARED, $(1))
-	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(notdir $(1)))
-	$(eval CHECKSUM_FILE := $(VM_SHARED_DIR)/$(notdir $(1)).txt)
+	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)))
+	$(eval RELEASE_NOTE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)).txt)
 	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
-		echo "===============================================================================" > $(CHECKSUM_FILE); \
-		echo "Platform                : Ampere Altra/Max" >> $(CHECKSUM_FILE); \
-		echo "Supported SPI ROM       : MX25L25673G" >> $(CHECKSUM_FILE); \
-		echo "===============================================================================" >> $(CHECKSUM_FILE); \
-		echo "BIOS BIN FIle : "$(notdir $(1)) >> $(CHECKSUM_FILE); \
-		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(CHECKSUM_FILE); \
-		echo "Release Time  : $(shell date '+%T')" >> $(CHECKSUM_FILE); \
-		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(VM_SHARED_FILE) | cut -d ' ' -f 1) >> $(CHECKSUM_FILE); \
-		echo "POST Message  : "$(FIRMWARE_VER) >> $(CHECKSUM_FILE); \
-		echo "Size          : 32MB" >> $(CHECKSUM_FILE); \
-		echo "===============================================================================" >> $(CHECKSUM_FILE); \
-		echo "===============================================================================" >> $(CHECKSUM_FILE); \
+		echo "===============================================================================" > $(RELEASE_NOTE); \
+		echo "Platform                : Ampere Altra/Max" >> $(RELEASE_NOTE); \
+		echo "Supported SPI ROM       : MX25L25673G" >> $(RELEASE_NOTE); \
+		echo "===============================================================================" >> $(RELEASE_NOTE); \
+		echo "BIOS BIN FIle : "$(notdir $(1)) >> $(RELEASE_NOTE); \
+		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(RELEASE_NOTE); \
+		echo "Release Time  : $(shell date '+%T')" >> $(RELEASE_NOTE); \
+		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(VM_SHARED_FILE) | cut -d ' ' -f 1) >> $(RELEASE_NOTE); \
+		echo "POST Message  : "$(FIRMWARE_VER) >> $(RELEASE_NOTE); \
+		echo "Size          : 32MB" >> $(RELEASE_NOTE); \
+		echo "===============================================================================" >> $(RELEASE_NOTE); \
+		echo "===============================================================================" >> $(RELEASE_NOTE); \
 	fi
 endef
 
@@ -379,7 +381,7 @@ tianocore_capsule: tianocore_img
 	$(eval DBU_KEY := $(EDK2_PLATFORMS_PKG_DIR)/TestKeys/Dbu_AmpereTest.priv.pem)
 # *atfedk2.img.signed was chosen to be backward compatible with release 1.01
 	$(eval TIANOCORE_ATF_IMAGE := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BOARD_NAME)_atfedk2.img.signed)
-	$(eval OUTPUT_UEFI_ATF_CAPSULE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).cap)
+	$(eval OUTPUT_UEFI_ATF_CAPSULE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).cap)
 	$(eval SCP_IMAGE := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BOARD_NAME)_scp.slim)
 	$(eval OUTPUT_SCP_CAPSULE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_scp$(OUTPUT_VARIANT)_$(VER).$(BUILD).cap)
 	$(eval EDK2_AARCH64_DIR := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BUILD_VARIANT)_$(EDK2_GCC_TAG)/AARCH64)
