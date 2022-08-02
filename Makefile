@@ -386,6 +386,7 @@ tianocore_capsule: tianocore_img
 	$(eval OUTPUT_SCP_CAPSULE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_scp$(OUTPUT_VARIANT)_$(VER).$(BUILD).cap)
 	$(eval EDK2_AARCH64_DIR := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BUILD_VARIANT)_$(EDK2_GCC_TAG)/AARCH64)
 	$(eval OUTPUT_CAPSULE_APP := $(OUTPUT_BIN_DIR)/CapsuleApp.efi)
+	$(eval OUTPUT_BOARDVERSION_APP := $(OUTPUT_BIN_DIR)/BoardVersion.efi)
 
 	@if [ -f "$(SCP_SLIM)" ]; then \
 		ln -sf $(realpath $(SCP_SLIM)) $(SCP_IMAGE); \
@@ -414,12 +415,14 @@ tianocore_capsule: tianocore_img
 	@cp -f $(EDK2_FV_DIR)/$(BOARD_NAME_UPPER)UEFIATFFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_UEFI_ATF_CAPSULE)
 	@cp -f $(EDK2_FV_DIR)/JADESCPFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_SCP_CAPSULE)
 	@cp -f $(EDK2_AARCH64_DIR)/CapsuleApp.efi $(OUTPUT_CAPSULE_APP)
+	@cp -f $(EDK2_AARCH64_DIR)/BoardVersion.efi $(OUTPUT_BOARDVERSION_APP)
 	@rm -f $(OUTPUT_RAW_IMAGE).sig $(OUTPUT_RAW_IMAGE).signed $(OUTPUT_RAW_IMAGE)
 
 ifneq ($(wildcard $(VM_SHARED_DIR)),)
 	$(call copy2VM_SHARED, $(OUTPUT_UEFI_ATF_CAPSULE))
 	$(call copy2VM_SHARED, $(OUTPUT_SCP_CAPSULE))
 	$(call copy2VM_SHARED, $(OUTPUT_CAPSULE_APP))
+	$(call copy2VM_SHARED, $(OUTPUT_BOARDVERSION_APP))
 	@date +%T
 endif	
 
