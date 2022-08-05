@@ -315,7 +315,7 @@ tianocore_fd: _tianocore_prepare
 ## history		: Extra copy to workaround ubuntu file cached problem
 .PHONY: history
 history:
-	@echo "Extra copy action to workaround Ubuntu file cached causing checksum error."
+#	@echo "Extra copy action to workaround Ubuntu file cached causing checksum error."
 ifneq ($(SPI_SIZE_MB),)
 	$(eval OUTPUT_IMAGE_BIN  := $(basename $(OUTPUT_IMAGE)).bin)
 ifneq ($(wildcard $(VM_SHARED_DIR)),)
