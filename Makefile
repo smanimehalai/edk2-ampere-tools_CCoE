@@ -100,7 +100,9 @@ FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') A
 define copy2VM_SHARED
 	@mkdir -p $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)
 	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)))
-	@cp -f $(1) $(VM_SHARED_FILE)
+	@if [[ -f $(1) ]]; then \
+		cp -f $(1) $(VM_SHARED_FILE); \
+	fi
 	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
 		$(CHECKSUM_TOOL) $(VM_SHARED_FILE); \
 	else \
@@ -415,7 +417,9 @@ tianocore_capsule: tianocore_img
 	@cp -f $(EDK2_FV_DIR)/$(BOARD_NAME_UPPER)UEFIATFFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_UEFI_ATF_CAPSULE)
 	@cp -f $(EDK2_FV_DIR)/JADESCPFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_SCP_CAPSULE)
 	@cp -f $(EDK2_AARCH64_DIR)/CapsuleApp.efi $(OUTPUT_CAPSULE_APP)
-	@cp -f $(EDK2_AARCH64_DIR)/BoardVersion.efi $(OUTPUT_BOARDVERSION_APP)
+	@if [[ -f $(EDK2_AARCH64_DIR)/BoardVersion.efi ]]; then \
+		cp -f $(EDK2_AARCH64_DIR)/BoardVersion.efi $(OUTPUT_BOARDVERSION_APP); \
+	fi
 	@rm -f $(OUTPUT_RAW_IMAGE).sig $(OUTPUT_RAW_IMAGE).signed $(OUTPUT_RAW_IMAGE)
 
 ifneq ($(wildcard $(VM_SHARED_DIR)),)
