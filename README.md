@@ -20,28 +20,13 @@ The process of creating a flashable image involves the following steps:
 
 ## Building the UEFI image
 
-Building UEFI image without LinuxBoot
+Building EDK2 FD with the following command:
 
 ```
 $ cd edk2-platforms && build -a AARCH64 -t GCC5 -b RELEASE -D SECURE_BOOT_ENABLE -p Platform/Ampere/JadePkg/Jade.dsc
 ```
 
-Building UEFI image with LinuxBoot
-
-Step 1: Building LinuxBoot binary
-
-```
-$ git clone --branch master https://github.com/linuxboot/mainboards.git
-$ make -C main/ampere/jade fetch flashkernel ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE}
-$ cp mainboards/ampere/jade/flashkernel edk2-platforms/Platform/Ampere/LinuxBootPkg/AArch64/flashkernel
-```
-
-Step 2: UEFI image with LinuxBoot
-
-```
-$ cd edk2-platforms && build -a AARCH64 -t GCC5 -b RELEASE -p Platform/Ampere/JadePkg/JadeLinuxBoot.dsc
-
-```
+**Notes**: Please refer to [LinuxBoot.md](LinuxBoot.md) for building EDK2+LinuxBoot FD.
 
 The resulting image will be at
 
@@ -102,17 +87,8 @@ $ python nvparam.py -f Platform/Ampere/JadePkg/jade_board_setting.txt -o BUILDS/
 
 ### Build integrated UEFI + Board Setting + ATF image
 
-For Ampere ATF 1.03 and later version
-```
-$ dd bs=1024 count=6144 if=/dev/zero | tr "\000" "\377" > BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
-$ dd bs=1 seek=4194304 conv=notrunc if=<ampere_atf_image_filepath> of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
-$ dd bs=1 seek=6225920 conv=notrunc if=BUILDS/jade_tianocore_atf/jade_board_setting.bin of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
-$ dd bs=1024 seek=6144 if=BUILDS/jade_tianocore_atf/jade_tianocore.fip.signed of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
+Generating the final image with the following commands:
 
-Result: BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
-```
-
-For Ampere ATF 1.02 version
 ```
 $ dd bs=1024 count=2048 if=/dev/zero | tr "\000" "\377" > BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
 $ dd bs=1 conv=notrunc if=<ampere_atf_image_filepath> of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
@@ -121,6 +97,8 @@ $ dd bs=1024 seek=2048 if=BUILDS/jade_tianocore_atf/jade_tianocore.fip.signed of
 
 Result: BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
 ```
+
+Note that the `jade_tianocore_atf.img` image is flashed at the beginning of the ATF SLIM region according to the SPI-NOR Flash Layout.
 
 ### Build Tianocore Capsule
 
@@ -155,6 +133,7 @@ Result: BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap
 # Using helper-scripts and Makefile
 
 Provided in this repository are the helper script **edk2-build.sh** modified from Linaro's uefi-tools at https://git.linaro.org/uefi/uefi-tools.git with added support for building Ampere's platform and final integrated Tianocore image.
+
 ```
 $ cd edk2-ampere-tools/
 $ ./edk2-build.sh -b RELEASE Jade --atf-image <full-path-to-ATF-image.slim>
@@ -174,3 +153,7 @@ pass   1
 fail   0
 ```
 An equivalent **Makefile** is also provided for those who wish to use it instead. Run `make -f edk2-ampere-tools/Makefile` for options.
+
+**Note**
+- For cross-compilation, use CROSS_COMPILE environment variable to specify the cross-compiler.
+- For native compilation, make sure that the location of the compiler invocations has been added to the PATH environment variable.
