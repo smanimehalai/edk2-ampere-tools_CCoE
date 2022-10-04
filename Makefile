@@ -241,7 +241,7 @@ else
 	@if $(IASL) -v 2>/dev/null | grep $(IASL_VER); then \
 		echo "OK"; \
 	else \
-		echo -e "Not Found\nDownloading and building iasl..."; \
+		echo -e "Not Found\nDownloadcleaning and building iasl..."; \
 		rm -rf $(IASL_DIR) && mkdir -p $(IASL_DIR); \
 		wget -O - -q $(IASL_URL) | tar xzf - -C $(SCRIPTS_DIR) --checkpoint=.100; \
 		$(MAKE) -C $(SCRIPTS_DIR)/$(IASL_NAME) -j $(NUM_THREADS) HOST=_CYGWIN; \
