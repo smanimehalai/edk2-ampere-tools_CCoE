@@ -220,7 +220,7 @@ _check_atf_tools:
 		rm -rf $(ATF_TOOLS_DIR) && mkdir -p $(ATF_TOOLS_DIR); \
 		cd $(SCRIPTS_DIR)/AtfTools && git init && git remote add origin -f $(ATF_REPO_URL) && git config core.sparseCheckout true; \
 		echo -e $$ATF_TOOLS_LIST > $(SCRIPTS_DIR)/AtfTools/.git/info/sparse-checkout; \
-		cd $(SCRIPTS_DIR)/AtfTools && git -C . checkout tags/$(ATF_TOOL_TAG) -b $(ATF_TOOL_TAG); \
+		cd $(SCRIPTS_DIR)/AtfTools && git -C . checkout b1470ccc928c45d4ee53f384d8c2d5d39b31b5e1; \
 		cd $(SCRIPTS_DIR)/AtfTools/tools/cert_create && $(MAKE) CRTTOOL=cert_create; \
 		cd $(SCRIPTS_DIR)/AtfTools/tools/fiptool && $(MAKE) FIPTOOL=fiptool; \
 		cp $(SCRIPTS_DIR)/AtfTools/tools/cert_create/cert_create $(ATF_TOOLS_DIR)/$(CERTTOOL); \
@@ -242,7 +242,7 @@ else
 	@if $(IASL) -v 2>/dev/null | grep $(IASL_VER); then \
 		echo "OK"; \
 	else \
-		echo -e "Not Found\nDownloading and building iasl..."; \
+		echo -e "Not Found\nDownloadcleaning and building iasl..."; \
 		rm -rf $(IASL_DIR) && mkdir -p $(IASL_DIR); \
 		wget -O - -q $(IASL_URL) | tar xzf - -C $(SCRIPTS_DIR) --checkpoint=.100; \
 		$(MAKE) -C $(SCRIPTS_DIR)/$(IASL_NAME) -j $(NUM_THREADS) HOST=_CYGWIN; \
