@@ -409,11 +409,9 @@ endif
 	@dd conv=notrunc bs=8 seek=524288 if=$(OUTPUT_IMAGE) of=$(OUTPUT_IMAGE_BIN)
 endif	
 ifneq ($(wildcard $(PROGRAMMER_TOOL)),)
-ifneq ($(wildcard $(POWER_SCRIPT)),)
+ifneq ($(shell lsusb | grep 0483:),)
 	. $(POWER_SCRIPT) OFF
-endif	
 	$(PROGRAMMER_TOOL) -u $(OUTPUT_IMAGE) -a 0x400000 -e -v
-ifneq ($(wildcard $(POWER_SCRIPT)),)
 	. $(POWER_SCRIPT) ON
 endif	
 endif	
