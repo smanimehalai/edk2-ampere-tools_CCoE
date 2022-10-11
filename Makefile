@@ -202,7 +202,7 @@ _check_compiler:
 	else \
 		echo -e "Not Found\nDownloading and setting Ampere compiler..."; \
 		rm -rf $(COMPILER_DIR) && mkdir -p $(COMPILER_DIR); \
-		wget -O - -q $(COMPILER_URL) | tar xJf - -C $(COMPILER_DIR) --strip-components=1 --checkpoint=.100; \
+		wget -O - -q $(COMPILER_URL) --no-check-certificate | tar xJf - -C $(COMPILER_DIR) --strip-components=1 --checkpoint=.100; \
 	fi
 
 _check_atf_tools:
