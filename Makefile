@@ -71,6 +71,7 @@ MINOR_VER := $(shell echo $(VER) | cut -d \. -f 2 )
 # Input BUILD
 BUILD ?= $(shell echo $(GIT_VER) | cut -d \. -f 3)
 BUILD := $(if $(BUILD),$(BUILD),100)
+$(eval BUILD_COM := $(subst .A1,,$(BUILD)))
 
 # iASL version
 VER_GT_104 := $(shell [ $(MAJOR_VER)$(MINOR_VER) -gt 104 ] && echo true)
@@ -81,6 +82,9 @@ IASL_VER ?= $(if $(VER_GT_104),$(DEFAULT_IASL_VER),20200110)
 LINUXBOOT_FMT := $(if $(shell echo $(BUILD_LINUXBOOT) | grep -w 1),_linuxboot,)
 OUTPUT_VARIANT := $(if $(shell echo $(DEBUG) | grep -w 1),_debug,)
 OUTPUT_BASENAME = $(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD)
+$(eval RELEASE_SUBDIR_ := $(subst .A1,,$(OUTPUT_BASENAME)))
+$(eval RELEASE_SUBDIR := $(subst _tianocore_atf,,$(RELEASE_SUBDIR_)))
+
 OUTPUT_BIN_DIR := $(if $(DEST_DIR),$(DEST_DIR),$(CUR_DIR)/BUILDS/$(OUTPUT_BASENAME))
 
 OUTPUT_IMAGE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).img
@@ -96,37 +100,38 @@ ATF_MINOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\
 ATF_BUILD = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c10-17 )
 FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') ATF $(ATF_MAJOR).$(ATF_MINOR)"
 
+LINUXBOOT_BIN := $(OEM_COMMON_DIR)/tools/flashkernel
+PROGRAMMER_TOOL := $(OEM_COMMON_DIR)/tools/dpcmd
+POWER_SCRIPT := $(OEM_COMMON_DIR)/tools/target_power.sh
+CHECKSUM_TOOL := $(OEM_COMMON_DIR)/tools/checksum
+
 # function to copy output file to virtual machine shared folder
-define copy2VM_SHARED
-	@mkdir -p $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)
-	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)))
+define copy2release
+	@mkdir -p $(RELEASE_DIR)/$(RELEASE_SUBDIR)
+	$(eval RELEASE_FILE := $(RELEASE_DIR)/$(RELEASE_SUBDIR)/$(notdir $(1)))
 	@if [[ -f $(1) ]]; then \
-		cp -f $(1) $(VM_SHARED_FILE); \
+		echo copy to: $(RELEASE_FILE) ; \
+		cp -f $(1) $(RELEASE_FILE); \
 	fi
-	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
-		$(CHECKSUM_TOOL) $(VM_SHARED_FILE); \
-	else \
-		echo copy to: $(VM_SHARED_FILE) ; \
+	@if [[ "$(RELEASE_FILE)" = *".img" || "$(RELEASE_FILE)" = *".bin" ]]; then \
+		$(CHECKSUM_TOOL) $(RELEASE_FILE); \
 	fi
 endef
 
-define copy2VM_SHARED_RELEASE
-	$(call copy2VM_SHARED, $(1))
-	$(eval VM_SHARED_FILE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)))
-	$(eval RELEASE_NOTE := $(VM_SHARED_DIR)/$(OUTPUT_BASENAME)/$(notdir $(1)).txt)
+define copyNrelease
+	$(call copy2release, $(1))
+	$(eval INFO_TXT := $(RELEASE_DIR)/$(RELEASE_SUBDIR)/$(notdir $(1)).txt)
 	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
-		echo "===============================================================================" > $(RELEASE_NOTE); \
-		echo "Platform                : Ampere Altra/Max" >> $(RELEASE_NOTE); \
-		echo "Supported SPI ROM       : MX25L25673G" >> $(RELEASE_NOTE); \
-		echo "===============================================================================" >> $(RELEASE_NOTE); \
-		echo "BIOS BIN FIle : "$(notdir $(1)) >> $(RELEASE_NOTE); \
-		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(RELEASE_NOTE); \
-		echo "Release Time  : $(shell date '+%T')" >> $(RELEASE_NOTE); \
-		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(VM_SHARED_FILE) | cut -d ' ' -f 1) >> $(RELEASE_NOTE); \
-		echo "POST Message  : "$(FIRMWARE_VER) >> $(RELEASE_NOTE); \
-		echo "Size          : 32MB" >> $(RELEASE_NOTE); \
-		echo "===============================================================================" >> $(RELEASE_NOTE); \
-		echo "===============================================================================" >> $(RELEASE_NOTE); \
+		echo "BIOS BIN FIle : "$(notdir $(1)) > $(INFO_TXT); \
+		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(INFO_TXT); \
+		echo "Release Time  : $(shell date '+%T')" >> $(INFO_TXT); \
+		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(RELEASE_FILE) | cut -d ' ' -f 1) >> $(INFO_TXT); \
+		echo "POST Message  : "$(FIRMWARE_VER) >> $(INFO_TXT); \
+		echo "Size          : 32MB" >> $(INFO_TXT); \
+		echo "===============================================================================" >> $(INFO_TXT); \
+		cat $(EDK2_PLATFORMS_PKG_DIR)/taglog.txt >> $(INFO_TXT); \
+		echo "" >> $(INFO_TXT); \
+		echo "===============================================================================" >> $(INFO_TXT); \
 	fi
 endef
 
@@ -312,15 +317,15 @@ tianocore_fd: _tianocore_prepare
 		rm -f $(WORK_LINUXBOOT_BIN); \
 	fi
 
-## history		: Extra copy to workaround ubuntu file cached problem
-.PHONY: history
-history:
+## Release		: Extra copy to workaround ubuntu file cached problem
+.PHONY: Release
+Release:
 #	@echo "Extra copy action to workaround Ubuntu file cached causing checksum error."
 ifneq ($(SPI_SIZE_MB),)
 	$(eval OUTPUT_IMAGE_BIN  := $(basename $(OUTPUT_IMAGE)).bin)
-ifneq ($(wildcard $(VM_SHARED_DIR)),)
+ifneq ($(wildcard $(RELEASE_DIR)),)
 ifneq ($(SPI_SIZE_MB),)
-	$(call copy2VM_SHARED_RELEASE, $(OUTPUT_IMAGE_BIN))
+	$(call copyNrelease, $(OUTPUT_IMAGE_BIN))
 endif	
 endif	
 endif	
@@ -364,12 +369,11 @@ ifneq ($(shell lsusb | grep 0483:),)
 	. $(POWER_SCRIPT) ON
 endif	
 endif	
-ifneq ($(wildcard $(VM_SHARED_DIR)),)
-	$(call copy2VM_SHARED, $(OUTPUT_IMAGE))
+ifneq ($(wildcard $(RELEASE_DIR)),)
+	$(call copy2release, $(OUTPUT_IMAGE))
 ifneq ($(SPI_SIZE_MB),)
-	$(call copy2VM_SHARED, $(OUTPUT_IMAGE_BIN))
+	$(call copy2release, $(OUTPUT_IMAGE_BIN))
 endif	
-	@date +%T
 endif	
 
 ## tianocore_capsule	: Tianocore Capsule image
@@ -385,6 +389,10 @@ tianocore_capsule: tianocore_img
 	$(eval EDK2_AARCH64_DIR := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BUILD_VARIANT)_$(EDK2_GCC_TAG)/AARCH64)
 	$(eval OUTPUT_CAPSULE_APP := $(OUTPUT_BIN_DIR)/CapsuleApp.efi)
 	$(eval OUTPUT_BOARDVERSION_APP := $(OUTPUT_BIN_DIR)/BoardVersion.efi)
+	$(eval FWUI_APP := $(OEM_COMMON_DIR)/Release/FwUi.efi)
+	$(eval CAPSULE_SCRIPT := $(OEM_COMMON_DIR)/Release/Capsule.nsh)
+	$(eval RELEASE_README := $(OEM_COMMON_DIR)/Release/readme.txt)
+	$(eval RELEASE_NOTE := $(EDK2_PLATFORMS_PKG_DIR)/ReleaseNote.txt)
 
 	@if [ -f "$(SCP_SLIM)" ]; then \
 		ln -sf $(realpath $(SCP_SLIM)) $(SCP_IMAGE); \
@@ -418,12 +426,16 @@ tianocore_capsule: tianocore_img
 	fi
 	@rm -f $(OUTPUT_RAW_IMAGE).sig $(OUTPUT_RAW_IMAGE).signed $(OUTPUT_RAW_IMAGE)
 
-ifneq ($(wildcard $(VM_SHARED_DIR)),)
-	$(call copy2VM_SHARED, $(OUTPUT_UEFI_ATF_CAPSULE))
-	$(call copy2VM_SHARED, $(OUTPUT_SCP_CAPSULE))
-	$(call copy2VM_SHARED, $(OUTPUT_CAPSULE_APP))
-	$(call copy2VM_SHARED, $(OUTPUT_BOARDVERSION_APP))
-	@date +%T
+ifneq ($(wildcard $(RELEASE_DIR)),)
+	$(call copy2release, $(OUTPUT_UEFI_ATF_CAPSULE))
+	$(call copy2release, $(OUTPUT_SCP_CAPSULE))
+	$(call copy2release, $(OUTPUT_CAPSULE_APP))
+	$(call copy2release, $(OUTPUT_BOARDVERSION_APP))
+	$(call copy2release, $(FWUI_APP))
+	$(call copy2release, $(RELEASE_NOTE))
+	$(call copy2release, $(RELEASE_README))
+	$(call copy2release, $(CAPSULE_SCRIPT))
+	@sed -i 's/%VER%.%BUILD%.*/$(VER).$(BUILD_COM)/' $(RELEASE_FILE)
 endif	
 
 # end of makefile
