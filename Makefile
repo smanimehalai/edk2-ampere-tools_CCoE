@@ -36,6 +36,14 @@ AARCH64_TOOLS_DIR := $(COMPILER_DIR)/bin
 
 # Compiler variables
 EDK2_GCC_TAG := GCC5
+AMPERE_COMPILER_PREFIX := aarch64-ampere-linux-gnu-
+ifneq ($(or $(shell $(CROSS_COMPILE)gcc -dumpmachine 2>/dev/null | grep -v ampere | grep aarch64), \
+           $(shell $(CROSS_COMPILE)gcc --version 2>/dev/null | grep Ampere | grep dynamic-nosysroot)),)
+	COMPILER := $(CROSS_COMPILE)
+else
+	COMPILER := $(AARCH64_TOOLS_DIR)/$(AMPERE_COMPILER_PREFIX)
+endif
+
 
 NUM_THREADS := $(shell echo $$(( $(shell getconf _NPROCESSORS_ONLN) + $(shell getconf _NPROCESSORS_ONLN))))
 
@@ -209,7 +217,7 @@ _check_compiler:
 #Keep the original auto-downloading mechanism >>>
 	$(eval COMPILER_NAME := ampere-8.3.0-20191025-dynamic-nosysroot-crosstools.tar.xz)
 	$(eval COMPILER_URL := https://cdn.amperecomputing.com/tools/compilers/cross/8.3.0/$(COMPILER_NAME))
-	
+
 	@if [[ "$(COMPILER)" != $(AARCH64_TOOLS_DIR)*  || -f $(AARCH64_TOOLS_DIR)/$(AMPERE_COMPILER_PREFIX)gcc ]]; then \
 		echo $$($(COMPILER)gcc -dumpmachine) $$($(COMPILER)gcc -dumpversion); \
 	else \
