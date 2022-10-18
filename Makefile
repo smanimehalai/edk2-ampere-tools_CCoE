@@ -13,6 +13,7 @@ ATF_TBB ?= 1
 BUILD_LINUXBOOT ?= 0
 
 BOARD_NAME ?= jade
+BOARD_NAME_SRC := Jade
 BOARD_NAME_UPPER := $(shell echo $(BOARD_NAME) | tr a-z A-Z)
 BOARD_NAME_UFL := $(shell echo $(BOARD_NAME) | sed 's/.*/\u&/')
 
@@ -328,7 +329,7 @@ _tianocore_prepare: _check_source _check_tools _check_compiler _check_iasl
 
 _tianocore_sign_fd: _check_atf_tools _check_efitools
 	@echo "Creating certitficate for $(OUTPUT_FD_IMAGE)"
-	$(eval DBB_KEY := $(EDK2_PLATFORMS_PKG_DIR)/TestKeys/Dbb_AmpereTest.priv.pem)
+	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_JADE)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
 	@$(CERTTOOL) -n --ntfw-nvctr 0 --key-alg rsa --nt-fw-key $(DBB_KEY) --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE)
 	@$(FIPTOOL) create --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE) $(OUTPUT_FD_IMAGE).signed
 	@rm -fr $(OUTPUT_FD_IMAGE).crt
@@ -338,8 +339,8 @@ dbukeys_auth: _check_efitools
 	$(eval DBUAUTH:=$(OUTPUT_BIN_DIR)/dbukey.auth)
 	$(eval DELDBUAUTH:=$(OUTPUT_BIN_DIR)/del_dbukey.auth)
 	$(eval DBUGUID:=$(OUTPUT_BIN_DIR)/dbu_guid.txt)
-	$(eval DBUKEY:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
-	$(eval DBUCER:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbu_AmpereTest.cer.pem)
+	$(eval DBUKEY:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
+	$(eval DBUCER:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbu_AmpereTest.cer.pem)
 	$(eval DBUDIR:=$(OUTPUT_BIN_DIR)/dbukeys)
 	$(eval FWUGUID:=$(shell python3 -c 'import uuid; print(str(uuid.uuid1()))'))
 
