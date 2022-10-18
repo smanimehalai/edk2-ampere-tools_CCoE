@@ -329,7 +329,7 @@ _tianocore_prepare: _check_source _check_tools _check_compiler _check_iasl
 
 _tianocore_sign_fd: _check_atf_tools _check_efitools
 	@echo "Creating certitficate for $(OUTPUT_FD_IMAGE)"
-	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_JADE)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
+	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
 	@$(CERTTOOL) -n --ntfw-nvctr 0 --key-alg rsa --nt-fw-key $(DBB_KEY) --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE)
 	@$(FIPTOOL) create --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE) $(OUTPUT_FD_IMAGE).signed
 	@rm -fr $(OUTPUT_FD_IMAGE).crt
@@ -401,7 +401,7 @@ endif
 .PHONY: tianocore_img
 tianocore_img: _check_atf_tools _check_atf_slim _check_board_setting tianocore_fd
 	@echo "Build Tianocore $(BUILD_VARIANT_UFL) Image - ATF VERSION: $(ATF_MAJOR).$(ATF_MINOR).$(ATF_BUILD)..."
-	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
+	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
 	@dd bs=1024 count=2048 if=/dev/zero | tr "\000" "\377" > $(OUTPUT_RAW_IMAGE)
 	@dd bs=1 seek=0 conv=notrunc if=$(ATF_SLIM) of=$(OUTPUT_RAW_IMAGE)
 	@if [ $(MAJOR_VER)$(MINOR_VER) -gt 202 ]; then \
@@ -455,7 +455,7 @@ endif
 .PHONY: tianocore_capsule
 tianocore_capsule: tianocore_img dbukeys_auth
 	@echo "Build Tianocore $(BUILD_VARIANT_UFL) Capsule..."
-	$(eval DBU_KEY := $(EDK2_PLATFORMS_PKG_DIR)/TestKeys/Dbu_AmpereTest.priv.pem)
+	$(eval DBU_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
 # *atfedk2.img.signed was chosen to be backward compatible with release 1.01
 	$(eval TIANOCORE_ATF_IMAGE := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BOARD_NAME)_atfedk2.img.signed)
 	$(eval OUTPUT_UEFI_ATF_CAPSULE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).cap)
