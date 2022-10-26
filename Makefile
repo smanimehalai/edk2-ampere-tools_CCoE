@@ -374,6 +374,7 @@ tianocore_fd: _tianocore_prepare
 	fi
 
 	. $(EDK2_SRC_DIR)/edksetup.sh && build -a AARCH64 -t $(EDK2_GCC_TAG) -b $(BUILD_VARIANT) -n $(NUM_THREADS) \
+		-D DEVEL_MODE=$(DEVEL_MODE) \
 		-D FIRMWARE_VER=$(FIRMWARE_VER) \
 		-D MAJOR_VER=$(MAJOR_VER) -D MINOR_VER=$(MINOR_VER) -D SECURE_BOOT_ENABLE \
 		-p $(DSC_FILE)
