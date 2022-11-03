@@ -467,7 +467,7 @@ tianocore_capsule: tianocore_img dbukeys_auth
 	$(eval EDK2_AARCH64_DIR := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BUILD_VARIANT)_$(EDK2_GCC_TAG)/AARCH64)
 	$(eval OUTPUT_CAPSULE_APP := $(OUTPUT_BIN_DIR)/CapsuleApp.efi)
 	$(eval OUTPUT_BOARDVERSION_APP := $(OUTPUT_BIN_DIR)/BoardVersion.efi)
-	$(eval FWUI_APP := $(OEM_COMMON_DIR)/Release/FwUi.efi)
+	$(eval OUTPUT_FWUI_APP := $(OUTPUT_BIN_DIR)/FwUi.efi)
 	$(eval CAPSULE_SCRIPT := $(OEM_COMMON_DIR)/Release/Capsule.nsh)
 	$(eval RELEASE_README := $(OEM_COMMON_DIR)/Release/readme.txt)
 	$(eval RELEASE_NOTE := $(EDK2_PLATFORMS_PKG_DIR)/ReleaseNote.txt)
@@ -521,6 +521,9 @@ tianocore_capsule: tianocore_img dbukeys_auth
 	@if [[ -f $(EDK2_AARCH64_DIR)/BoardVersion.efi ]]; then \
 		cp -f $(EDK2_AARCH64_DIR)/BoardVersion.efi $(OUTPUT_BOARDVERSION_APP); \
 	fi
+	@if [[ -f $(EDK2_AARCH64_DIR)/FwUi.efi ]]; then \
+		cp -f $(EDK2_AARCH64_DIR)/FwUi.efi $(OUTPUT_FWUI_APP); \
+	fi
 	@rm -f $(OUTPUT_RAW_IMAGE).sig $(OUTPUT_RAW_IMAGE).signed $(OUTPUT_RAW_IMAGE) $(OUTPUT_RAW_IMAGE).append \
 			$(SCP_IMAGE).append
 
@@ -529,7 +532,7 @@ ifneq ($(wildcard $(RELEASE_DIR)),)
 	$(call copy2release, $(OUTPUT_SCP_CAPSULE))
 	$(call copy2release, $(OUTPUT_CAPSULE_APP))
 	$(call copy2release, $(OUTPUT_BOARDVERSION_APP))
-	$(call copy2release, $(FWUI_APP))
+	$(call copy2release, $(OUTPUT_FWUI_APP))
 	$(call copy2release, $(RELEASE_NOTE))
 	$(call copy2release, $(RELEASE_README))
 	$(call copy2release, $(CAPSULE_SCRIPT))
