@@ -450,7 +450,9 @@ ifneq ($(wildcard $(RELEASE_DIR)),)
 ifneq ($(SPI_SIZE_MB),)
 	$(call copy2release, $(OUTPUT_IMAGE_BIN))
 endif	
-endif	
+endif
+	@echo "Checksum of FD: for binary modification check, use this value to check if any object binary were modified"	
+	@$(CHECKSUM_TOOL) $(OUTPUT_FD_IMAGE)
 
 ## tianocore_capsule	: Tianocore Capsule image
 .PHONY: tianocore_capsule
