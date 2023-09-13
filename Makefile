@@ -236,7 +236,7 @@ _check_atf_tools:
 _check_iasl:
 	@echo -n "Checking iasl..."
 	$(eval IASL_NAME := acpica-unix2-$(IASL_VER))
-	$(eval IASL_URL := "https://acpica.org/sites/acpica/files/$(IASL_NAME).tar.gz")
+	$(eval IASL_URL := "https://downloadmirror.intel.com/774867/$(IASL_NAME).tar.gz")
 ifneq ($(shell $(IASL) -v 2>/dev/null | grep $(IASL_VER)),)
 # iASL compiler is already available in the system.
 	@echo "OK"
