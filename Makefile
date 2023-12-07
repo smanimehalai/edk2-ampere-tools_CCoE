@@ -21,7 +21,7 @@ CUR_DIR := $(PWD)
 SCRIPTS_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 ROOT_DIR := $(shell dirname $(SCRIPTS_DIR))
 
-EDK2_SRC_DIR := $(ROOT_DIR)/edk2
+EDK2_SRC_DIR := $(ROOT_DIR)/edk2_CCoE
 EDK2_NON_OSI_SRC_DIR := $(ROOT_DIR)/edk2-non-osi
 EDK2_PLATFORMS_SRC_DIR := $(ROOT_DIR)/edk2-platforms_CCoE
 EDK2_FEATURES_INTEL_DIR := $(EDK2_PLATFORMS_SRC_DIR)/Features/Intel
