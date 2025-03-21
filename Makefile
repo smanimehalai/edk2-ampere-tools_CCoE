@@ -1,6 +1,6 @@
 # @file
 #
-# Copyright (c) 2020-2024, Ampere Computing LLC.
+# Copyright (c) 2020-2021, Ampere Computing LLC.
 #
 # SPDX-License-Identifier: ISC
 #
@@ -13,6 +13,7 @@ ATF_TBB ?= 1
 BUILD_LINUXBOOT ?= 0
 
 BOARD_NAME ?= jade
+BOARD_NAME_SRC := Jade
 BOARD_NAME_UPPER := $(shell echo $(BOARD_NAME) | tr a-z A-Z)
 BOARD_NAME_UFL := $(shell echo $(BOARD_NAME) | sed 's/.*/\u&/')
 
@@ -21,20 +22,21 @@ CUR_DIR := $(PWD)
 SCRIPTS_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 ROOT_DIR := $(shell dirname $(SCRIPTS_DIR))
 
-EDK2_SRC_DIR := $(ROOT_DIR)/edk2
+EDK2_SRC_DIR := $(ROOT_DIR)/edk2_CCoE
 EDK2_NON_OSI_SRC_DIR := $(ROOT_DIR)/edk2-non-osi
-EDK2_PLATFORMS_SRC_DIR := $(ROOT_DIR)/edk2-platforms
+EDK2_PLATFORMS_SRC_DIR := $(ROOT_DIR)/edk2-platforms_CCoE
 EDK2_FEATURES_INTEL_DIR := $(EDK2_PLATFORMS_SRC_DIR)/Features/Intel
-EDK2_FEATURES_DIR := $(EDK2_PLATFORMS_SRC_DIR)/Features
 EDK2_PLATFORMS_PKG_DIR := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg
-REQUIRE_EDK2_SRC := $(EDK2_SRC_DIR) $(EDK2_PLATFORMS_SRC_DIR)$(if $(wildcard $(EDK2_NON_OSI_SRC_DIR)), $(EDK2_NON_OSI_SRC_DIR),) $(EDK2_FEATURES_INTEL_DIR) $(EDK2_FEATURES_DIR)
-
+REQUIRE_EDK2_SRC := $(EDK2_SRC_DIR) $(EDK2_PLATFORMS_SRC_DIR)$(if $(wildcard $(EDK2_NON_OSI_SRC_DIR)), $(EDK2_NON_OSI_SRC_DIR),) $(EDK2_FEATURES_INTEL_DIR)
+WORK_LINUXBOOT_BIN := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/LinuxBootPkg/AArch64/flashkernel
 ATF_TOOLS_DIR := $(SCRIPTS_DIR)/toolchain/atf-tools
 IASL_DIR := $(SCRIPTS_DIR)/toolchain/iasl
 EFI_TOOLS_DIR := $(SCRIPTS_DIR)/toolchain/efitools
 
+
 # Compiler variables
-EDK2_GCC_TAG := GCC
+EDK2_GCC_TAG := GCC5
+
 
 NUM_THREADS := $(shell echo $$(( $(shell getconf _NPROCESSORS_ONLN) + $(shell getconf _NPROCESSORS_ONLN))))
 
@@ -45,7 +47,7 @@ CERTTOOL := cert_create
 CERT_TO_EFI_SIG_LIST:=cert-to-efi-sig-list
 SIGN_EFI_SIG_LIST:=sign-efi-sig-list
 NVGENCMD := python $(SCRIPTS_DIR)/nvparam.py
-EXECUTABLES := openssl git cut sed awk wget tar flex bison gcc g++ python3 gcab
+EXECUTABLES := openssl git cut sed awk wget tar flex bison gcc g++ python3
 
 PARSE_PLATFORMS_TOOL := $(SCRIPTS_DIR)/parse-platforms.py
 PLATFORMS_CONFIG := $(SCRIPTS_DIR)/edk2-platforms.config
@@ -66,6 +68,7 @@ MINOR_VER := $(shell echo $(VER) | cut -d \. -f 2 )
 # Input BUILD
 BUILD ?= $(shell echo $(GIT_VER) | cut -d \. -f 3)
 BUILD := $(if $(BUILD),$(BUILD),100)
+$(eval BUILD_COM := $(subst .A1,,$(BUILD)))
 
 # iASL version
 VER_GT_104 := $(shell [ $(MAJOR_VER)$(MINOR_VER) -gt 104 ] && echo true)
@@ -80,10 +83,14 @@ EFITOOLS_VER := 1.8.1
 # File path variables
 LINUXBOOT_FMT := $(if $(shell echo $(BUILD_LINUXBOOT) | grep -w 1),_linuxboot,)
 OUTPUT_VARIANT := $(if $(shell echo $(DEBUG) | grep -w 1),_debug,)
-OUTPUT_BIN_DIR := $(if $(DEST_DIR),$(DEST_DIR),$(CUR_DIR)/BUILDS/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD))
+OUTPUT_BASENAME = $(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD)
+$(eval RELEASE_SUBDIR_ := $(subst .A1,,$(OUTPUT_BASENAME)))
+$(eval RELEASE_SUBDIR := $(subst _tianocore_atf,,$(RELEASE_SUBDIR_)))
 
-OUTPUT_IMAGE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).img
-OUTPUT_RAW_IMAGE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).img.raw
+OUTPUT_BIN_DIR := $(if $(DEST_DIR),$(DEST_DIR),$(CUR_DIR)/BUILDS/$(OUTPUT_BASENAME))
+
+OUTPUT_IMAGE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).img
+OUTPUT_RAW_IMAGE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).img.raw
 OUTPUT_FD_IMAGE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).fd
 OUTPUT_BOARD_SETTING_BIN := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_board_setting.bin
 
@@ -93,6 +100,42 @@ BOARD_SETTING ?= $(word 1,$(foreach iter,$(BOARD_SETTING_FILES), $(if $(wildcard
 ATF_MAJOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c7 )
 ATF_MINOR = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c8-9 )
 ATF_BUILD = $(shell grep -aPo AMPC31.\{0,14\} $(ATF_SLIM) 2>/dev/null | tr -d '\0' | cut -c10-17 )
+FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d') ATF $(ATF_MAJOR).$(ATF_MINOR)"
+
+LINUXBOOT_BIN := $(OEM_COMMON_DIR)/tools/flashkernel
+PROGRAMMER_TOOL := $(OEM_COMMON_DIR)/tools/dpcmd
+POWER_SCRIPT := $(OEM_COMMON_DIR)/tools/target_power.sh
+CHECKSUM_TOOL := $(OEM_COMMON_DIR)/tools/checksum
+
+# function to copy output file to virtual machine shared folder
+define copy2release
+	@mkdir -p $(RELEASE_DIR)/$(RELEASE_SUBDIR)
+	$(eval RELEASE_FILE := $(RELEASE_DIR)/$(RELEASE_SUBDIR)/$(notdir $(1)))
+	@if [[ -f $(1) ]]; then \
+		echo copy to: $(RELEASE_FILE) ; \
+		cp -f $(1) $(RELEASE_FILE); \
+	fi
+	@if [[ "$(RELEASE_FILE)" = *".img" || "$(RELEASE_FILE)" = *".bin" ]]; then \
+		$(CHECKSUM_TOOL) $(RELEASE_FILE); \
+	fi
+endef
+
+define copyNrelease
+	$(call copy2release, $(1))
+	$(eval INFO_TXT := $(RELEASE_DIR)/$(RELEASE_SUBDIR)/$(notdir $(1)).txt)
+	@if [[ ! -z "$(CHECKSUM_TOOL)" ]]; then \
+		echo "BIOS BIN FIle : "$(notdir $(1)) > $(INFO_TXT); \
+		echo "Release Date  : $(shell date '+%Y/%m/%d')" >> $(INFO_TXT); \
+		echo "Release Time  : $(shell date '+%T')" >> $(INFO_TXT); \
+		echo "CheckSum      : "$(shell $(CHECKSUM_TOOL) $(RELEASE_FILE) | cut -d ' ' -f 1) >> $(INFO_TXT); \
+		echo "POST Message  : "$(FIRMWARE_VER) >> $(INFO_TXT); \
+		echo "Size          : 32MB" >> $(INFO_TXT); \
+		echo "===============================================================================" >> $(INFO_TXT); \
+		cat $(EDK2_PLATFORMS_PKG_DIR)/taglog.txt >> $(INFO_TXT); \
+		echo "" >> $(INFO_TXT); \
+		echo "===============================================================================" >> $(INFO_TXT); \
+	fi
+endef
 
 # Targets
 define HELP_MSG
@@ -134,10 +177,12 @@ all: tianocore_capsule linuxboot_img
 clean:
 	@echo "Tianocore clean BaseTools..."
 	$(MAKE) -C $(EDK2_SRC_DIR)/BaseTools clean
-	cd $(EDK2_SRC_DIR) && git clean -dfx Conf/.* Conf/*
 
 	@echo "Tianocore clean $(CUR_DIR)/Build..."
 	@rm -fr $(CUR_DIR)/Build
+
+	@echo "Ampere Tools clean $(CUR_DIR)/edk2-ampere-tools/toolchain..."
+	@rm -fr $(CUR_DIR)/edk2-ampere-tools/toolchain
 
 ## linuxboot_img		: Linuxboot image
 .PHONY: linuxboot_img
@@ -156,19 +201,21 @@ _check_tools:
 
 _check_compiler:
 	@echo "Checking compiler...OK"
-
-ifeq ("$(shell uname -m)", "x86_64")
-	$(if $(shell $(CROSS_COMPILE)gcc -dumpmachine | grep aarch64),,$(error "CROSS_COMPILE is invalid"))
-endif
-
+        
 	@echo "---> $$($(CROSS_COMPILE)gcc -dumpmachine) $$($(CROSS_COMPILE)gcc -dumpversion)";
-
+#Keep the original auto-downloading mechanism <<<
 _check_atf_tools:
 	@echo -n "Checking ATF Tools..."
 	$(eval ATF_REPO_URL := https://github.com/ARM-software/arm-trusted-firmware.git)
 	$(eval export ATF_TOOLS_LIST := include/tools_share \nmake_helpers \ntools/cert_create \ntools/fiptool)
 	$(eval export PATH := $(ATF_TOOLS_DIR):$(PATH))
-	$(eval ATF_TOOL_TAG := v2.6)
+#	$(eval ATF_TOOL_TAG := v2.6)
+
+#
+# ATF_REPO_URL cause CERTTOOL building error at commit 9bc52d330fccb0e4df22006630350a42457d3306
+# so replace "--track origin/master" with previous commit "b1470ccc928c45d4ee53f384d8c2d5d39b31b5e1"
+#
+# cd $(SCRIPTS_DIR)/AtfTools && git -C . checkout tags/$(ATF_TOOL_TAG) -b $(ATF_TOOL_TAG); 
 
 	@if which $(CERTTOOL) &>/dev/null && which $(FIPTOOL) &>/dev/null; then \
 		echo "OK"; \
@@ -178,7 +225,7 @@ _check_atf_tools:
 		rm -rf $(ATF_TOOLS_DIR) && mkdir -p $(ATF_TOOLS_DIR); \
 		cd $(SCRIPTS_DIR)/AtfTools && git init && git remote add origin -f $(ATF_REPO_URL) && git config core.sparseCheckout true; \
 		echo -e $$ATF_TOOLS_LIST > $(SCRIPTS_DIR)/AtfTools/.git/info/sparse-checkout; \
-		cd $(SCRIPTS_DIR)/AtfTools && git -C . checkout tags/$(ATF_TOOL_TAG) -b $(ATF_TOOL_TAG); \
+		cd $(SCRIPTS_DIR)/AtfTools && git -C . checkout b1470ccc928c45d4ee53f384d8c2d5d39b31b5e1; \
 		cd $(SCRIPTS_DIR)/AtfTools/tools/cert_create && $(MAKE) CRTTOOL=cert_create; \
 		cd $(SCRIPTS_DIR)/AtfTools/tools/fiptool && $(MAKE) FIPTOOL=fiptool; \
 		cp $(SCRIPTS_DIR)/AtfTools/tools/cert_create/cert_create $(ATF_TOOLS_DIR)/$(CERTTOOL); \
@@ -201,7 +248,7 @@ else
 	@if $(IASL) -v 2>/dev/null | grep $(IASL_VER); then \
 		echo "OK"; \
 	else \
-		echo -e "Not Found\nDownloading and building iasl..."; \
+		echo -e "Not Found\nDownloadcleaning and building iasl..."; \
 		rm -rf $(IASL_DIR) && mkdir -p $(IASL_DIR); \
 		wget -O - -q $(IASL_URL) | tar xzf - -C $(SCRIPTS_DIR) --checkpoint=.100; \
 		$(MAKE) -C $(SCRIPTS_DIR)/$(IASL_NAME) -j $(NUM_THREADS) HOST=_CYGWIN; \
@@ -260,7 +307,7 @@ _tianocore_prepare: _check_source _check_tools _check_compiler _check_iasl
 
 _tianocore_sign_fd: _check_atf_tools _check_efitools
 	@echo "Creating certitficate for $(OUTPUT_FD_IMAGE)"
-	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
+	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
 	@$(CERTTOOL) -n --ntfw-nvctr 0 --key-alg rsa --nt-fw-key $(DBB_KEY) --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE)
 	@$(FIPTOOL) create --nt-fw-cert $(OUTPUT_FD_IMAGE).crt --nt-fw $(OUTPUT_FD_IMAGE) $(OUTPUT_FD_IMAGE).signed
 	@rm -fr $(OUTPUT_FD_IMAGE).crt
@@ -270,10 +317,10 @@ dbukeys_auth: _check_efitools
 	$(eval DBUAUTH:=$(OUTPUT_BIN_DIR)/dbukey.auth)
 	$(eval DELDBUAUTH:=$(OUTPUT_BIN_DIR)/del_dbukey.auth)
 	$(eval DBUGUID:=$(OUTPUT_BIN_DIR)/dbu_guid.txt)
-	$(eval DBUKEY:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
-	$(eval DBUCER:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbu_AmpereTest.cer.pem)
+	$(eval DBUKEY:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
+	$(eval DBUCER:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbu_AmpereTest.cer.pem)
 	$(eval DBUDIR:=$(OUTPUT_BIN_DIR)/dbukeys)
-	$(eval FWUGUID:="4796d3b0-1bbb-4680-b471-a49b49b2390e")
+	$(eval FWUGUID:=$(shell python3 -c 'import uuid; print(str(uuid.uuid1()))'))
 
 	@if [ $(MAJOR_VER)$(MINOR_VER) -gt 202 ]; then \
 		mkdir -p $(DBUDIR); \
@@ -281,38 +328,13 @@ dbukeys_auth: _check_efitools
 		echo $(FWUGUID) > $(DBUDIR)/dbu_guid.txt; \
 		cd $(DBUDIR); \
 		$(CERT_TO_EFI_SIG_LIST) -g $(FWUGUID) $(DBUCER) dbu.esl; \
-		$(SIGN_EFI_SIG_LIST) -g $(FWUGUID) -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
+		$(SIGN_EFI_SIG_LIST) -g $(FWUGUID) -t "$(date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
 						-k $(DBUKEY) -c $(DBUCER) dbu dbu.esl dbukey.auth; \
-		$(SIGN_EFI_SIG_LIST) -g $(FWUGUID) -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
+		$(SIGN_EFI_SIG_LIST) -g $(FWUGUID) -t "$(date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
 						-k $(DBUKEY) -c $(DBUCER) dbu /dev/null del_dbukey.auth; \
 		cp -f $(DBUDIR)/dbukey.auth $(DBUAUTH); \
 		cp -f $(DBUDIR)/del_dbukey.auth $(DELDBUAUTH); \
 		rm -r $(DBUDIR); \
-	fi
-
-.PHONY: dbbkeys_auth
-dbbkeys_auth: _check_efitools
-	$(eval DBBAUTH:=$(OUTPUT_BIN_DIR)/dbbkey.auth)
-	$(eval DELDBBAUTH:=$(OUTPUT_BIN_DIR)/del_dbbkey.auth)
-	$(eval DBBGUID:=$(OUTPUT_BIN_DIR)/dbb_guid.txt)
-	$(eval DBBKEY:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
-	$(eval DBBCER:=$(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbb_AmpereTest.cer.pem)
-	$(eval DBBDIR:=$(OUTPUT_BIN_DIR)/dbbkeys)
-	$(eval FWUGUID:="4796d3b0-1bbb-4680-b471-a49b49b2390e")
-
-	@if [ $(MAJOR_VER)$(MINOR_VER) -gt 202 ]; then \
-		mkdir -p $(DBBDIR); \
-		echo FWU_GUID=$(FWUGUID); \
-		echo $(FWUGUID) > $(DBBDIR)/dbb_guid.txt; \
-		cd $(DBBDIR); \
-		$(CERT_TO_EFI_SIG_LIST) -g $(FWUGUID) $(DBBCER) dbb.esl; \
-		$(SIGN_EFI_SIG_LIST) -g $(FWUGUID) -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
-						-k $(DBBKEY) -c $(DBBCER) dbb dbb.esl dbbkey.auth; \
-		$(SIGN_EFI_SIG_LIST) -g $(FWUGUID) -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
-						-k $(DBBKEY) -c $(DBBCER) dbb /dev/null del_dbbkey.auth; \
-		cp -f $(DBBDIR)/dbbkey.auth $(DBBAUTH); \
-		cp -f $(DBBDIR)/del_dbbkey.auth $(DELDBBAUTH); \
-		rm -r $(DBBDIR); \
 	fi
 
 ## tianocore_fd		: Tianocore FD image
@@ -325,24 +347,40 @@ tianocore_fd: _tianocore_prepare
 	$(if $(DSC_FILE),,$(error "DSC not found"))
 	$(eval EDK2_FD_IMAGE := $(EDK2_FV_DIR)/BL33_$(BOARD_NAME_UPPER)_UEFI.fd)
 
-	@if [ -d $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/LinuxBootPkg ] && [ $(BUILD_LINUXBOOT) -eq 1 ]; then \
-		cp $(LINUXBOOT_BIN) $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/LinuxBootPkg/AArch64/flashkernel; \
+	@if [ $(BUILD_LINUXBOOT) -eq 1 ]; then \
+		cp $(LINUXBOOT_BIN) $(WORK_LINUXBOOT_BIN); \
 	fi
 
 	. $(EDK2_SRC_DIR)/edksetup.sh && build -a AARCH64 -t $(EDK2_GCC_TAG) -b $(BUILD_VARIANT) -n $(NUM_THREADS) \
-		-D FIRMWARE_VER="$(MAJOR_VER).$(MINOR_VER).$(BUILD) Build $(shell date '+%Y%m%d')" \
+		-D DEVEL_MODE=$(DEVEL_MODE) \
+		-D FIRMWARE_VER=$(FIRMWARE_VER) \
 		-D MAJOR_VER=$(MAJOR_VER) -D MINOR_VER=$(MINOR_VER) -D SECURE_BOOT_ENABLE \
-		-D LINUXBOOT_FILE=$(LINUXBOOT_BIN) \
-		--pcd gEmbeddedTokenSpaceGuid.PcdMemoryAttributeEnabledDefault=FALSE \
 		-p $(DSC_FILE)
 	@mkdir -p $(OUTPUT_BIN_DIR)
 	@cp -f $(EDK2_FD_IMAGE) $(OUTPUT_FD_IMAGE)
+
+	@if [ $(BUILD_LINUXBOOT) -eq 1 ]; then \
+		rm -f $(WORK_LINUXBOOT_BIN); \
+	fi
+
+## Release		: Extra copy to workaround ubuntu file cached problem
+.PHONY: Release
+Release:
+#	@echo "Extra copy action to workaround Ubuntu file cached causing checksum error."
+ifneq ($(SPI_SIZE_MB),)
+	$(eval OUTPUT_IMAGE_BIN  := $(basename $(OUTPUT_IMAGE)).bin)
+ifneq ($(wildcard $(RELEASE_DIR)),)
+ifneq ($(SPI_SIZE_MB),)
+	$(call copyNrelease, $(OUTPUT_IMAGE_BIN))
+endif	
+endif	
+endif	
 
 ## tianocore_img		: Tianocore Integrated image
 .PHONY: tianocore_img
 tianocore_img: _check_atf_tools _check_atf_slim _check_board_setting tianocore_fd
 	@echo "Build Tianocore $(BUILD_VARIANT_UFL) Image - ATF VERSION: $(ATF_MAJOR).$(ATF_MINOR).$(ATF_BUILD)..."
-	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
+	$(eval DBB_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbb_AmpereTest.priv.pem)
 	@dd bs=1024 count=2048 if=/dev/zero | tr "\000" "\377" > $(OUTPUT_RAW_IMAGE)
 	@dd bs=1 seek=0 conv=notrunc if=$(ATF_SLIM) of=$(OUTPUT_RAW_IMAGE)
 	@if [ $(MAJOR_VER)$(MINOR_VER) -gt 202 ]; then \
@@ -368,61 +406,51 @@ tianocore_img: _check_atf_tools _check_atf_slim _check_board_setting tianocore_f
 	else \
 		cp $(OUTPUT_RAW_IMAGE) $(OUTPUT_IMAGE); \
 	fi
-.PHONY: fw_cabinet_metainfo
-fw_cabinet_metainfo:
-	$(eval MEDIAINFO_FILE:=firmware.metainfo.xml)
-	$(eval AMP_MEDIAINFO_FILE:=$(CUR_DIR)/ampere.metainfo.xml)
-	$(eval COMPONENT:=SCP)
-	$(eval REL_VER:=$(VER).$(BUILD))
-	$(eval AMPERE_GUID:=f08bca31-542e-4cea-8b48-8e54f9422594)
-	@sed -e 's/COMPONENT/$(COMPONENT)/g' \
-		 -e 's/REL_VER/$(REL_VER)/g' \
-		 -e 's/AMP_CPU/$(TARGETSOC_UFL)/g' \
-		 -e 's/AMPERE_GUID/$(AMPERE_GUID)/g' \
-		 -e 's/BUILD_DATE/$(BUILD_DATE)/g' \
-		 $(AMP_MEDIAINFO_FILE) > $(MEDIAINFO_FILE)
-
-.PHONY: fw_cabinet
-fw_cabinet:
-	$(eval COMPONENT:=SCP)
-	@echo
-	@echo "Creating $(COMPONENT) Cabinet..."
-	$(eval REL_VER:=$(VER).$(BUILD))
-	$(eval CAP_FILE:=$(FWBINDIR)/$(TARGET_SOC)_scp_$(REL_VER).cap)
-	$(eval CAB_FILE:=$(FWBINDIR)/$(TARGET_SOC)_scp_$(REL_VER).cab)
-	$(eval GEN_CAB:=$(OUTPUT_BIN_DIR)/gen_cab)
-	@mkdir -p $(GEN_CAB)
-	@if [ -e "$(CAP_FILE)" ]; then \
-		 rm -fr $(GEN_CAB)/firmware.bin; \
-		 cd $(GEN_CAB) && ln -sf $(CAP_FILE) firmware.bin; \
-	else \
-		 echo "Error: $(CAP_FILE) not found."; \
-		 exit -1; \
-	fi
-	@make fw_cabinet_metainfo COMPONENT=$(COMPONENT) REL_VER=$(REL_VER) MEDIAINFO_FILE=$(GEN_CAB)/firmware.metainfo.xml
-	@if [ -e "$(GEN_CAB)/firmware.metainfo.xml" ]; then \
-		 cd $(GEN_CAB) && gcab -v -c $(CAB_FILE) firmware.metainfo.xml firmware.bin; \
-	else \
-		 echo "Error: firmware.metainfo.xml not found."; \
-		 exit -1; \
-	fi
-	@rm -rf $(GEN_CAB)
-	@echo "Completed creating $(COMPONENT) Cabinet."
+ifneq ($(SPI_SIZE_MB),)
+	$(eval OUTPUT_IMAGE_BIN  := $(basename $(OUTPUT_IMAGE)).bin)
+	@dd bs=1M count=$(SPI_SIZE_MB) if=/dev/zero | tr "\000" "\377" > $(OUTPUT_IMAGE_BIN)
+ifeq ($(FAILSAFE_WORKAROUND),1)
+# 	override 0x114070 as a failsafe function workaround 
+	@echo -en "\x01\x00\x00\x00\xff\xff\x13\xc3" | dd bs=1 seek=1130608 conv=notrunc of=$(OUTPUT_IMAGE_BIN)
+endif
+# insert tiano image to a SPI ROM image	starte at offset 8x512KB=4MB
+	@dd conv=notrunc bs=8 seek=524288 if=$(OUTPUT_IMAGE) of=$(OUTPUT_IMAGE_BIN)
+endif	
+ifneq ($(wildcard $(PROGRAMMER_TOOL)),)
+ifneq ($(shell lsusb | grep 0483:),)
+	. $(POWER_SCRIPT) OFF
+	$(PROGRAMMER_TOOL) -u $(OUTPUT_IMAGE) -a 0x400000 -e -v
+	. $(POWER_SCRIPT) ON
+endif	
+endif	
+ifneq ($(wildcard $(RELEASE_DIR)),)
+	$(call copy2release, $(OUTPUT_IMAGE))
+ifneq ($(SPI_SIZE_MB),)
+	$(call copy2release, $(OUTPUT_IMAGE_BIN))
+endif	
+endif
+	@echo "Checksum of FD: for binary modification check, use this value to check if any object binary were modified"	
+	@$(CHECKSUM_TOOL) $(OUTPUT_FD_IMAGE)
 
 ## tianocore_capsule	: Tianocore Capsule image
 .PHONY: tianocore_capsule
-tianocore_capsule: tianocore_img dbukeys_auth dbbkeys_auth
+tianocore_capsule: tianocore_img dbukeys_auth
 	@echo "Build Tianocore $(BUILD_VARIANT_UFL) Capsule..."
-	$(eval DBU_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_UFL)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
+	$(eval DBU_KEY := $(EDK2_PLATFORMS_SRC_DIR)/Platform/Ampere/$(BOARD_NAME_SRC)Pkg/TestKeys/Dbu_AmpereTest.priv.pem)
 # *atfedk2.img.signed was chosen to be backward compatible with release 1.01
 	$(eval TIANOCORE_ATF_IMAGE := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BOARD_NAME)_atfedk2.img.signed)
-	$(eval OUTPUT_UEFI_ATF_CAPSULE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).cap)
-	$(eval OUTPUT_UEFI_ATF_DBU_IMG := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_tianocore_atf$(LINUXBOOT_FMT)$(OUTPUT_VARIANT)_$(VER).$(BUILD).dbu.sig.img)
+	$(eval OUTPUT_UEFI_ATF_CAPSULE := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).cap)
+	$(eval OUTPUT_UEFI_ATF_DBU_IMG := $(OUTPUT_BIN_DIR)/$(OUTPUT_BASENAME).dbu.sig.img)
 	$(eval SCP_IMAGE := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BOARD_NAME)_scp.slim)
 	$(eval OUTPUT_SCP_CAPSULE := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_scp$(OUTPUT_VARIANT)_$(VER).$(BUILD).cap)
 	$(eval OUTPUT_SCP_DBU_IMG := $(OUTPUT_BIN_DIR)/$(BOARD_NAME)_scp$(OUTPUT_VARIANT)_$(VER).$(BUILD).dbu.sig.img)
 	$(eval EDK2_AARCH64_DIR := $(WORKSPACE)/Build/$(BOARD_NAME_UFL)/$(BUILD_VARIANT)_$(EDK2_GCC_TAG)/AARCH64)
 	$(eval OUTPUT_CAPSULE_APP := $(OUTPUT_BIN_DIR)/CapsuleApp.efi)
+	$(eval OUTPUT_BOARDVERSION_APP := $(OUTPUT_BIN_DIR)/BoardVersion.efi)
+	$(eval OUTPUT_FWUI_APP := $(OUTPUT_BIN_DIR)/FwUi.efi)
+	$(eval CAPSULE_SCRIPT := $(OEM_COMMON_DIR)/Release/Capsule.nsh)
+	$(eval RELEASE_README := $(OEM_COMMON_DIR)/Release/readme.txt)
+	$(eval RELEASE_NOTE := $(EDK2_PLATFORMS_PKG_DIR)/ReleaseNote.txt)
 
 	@if [ -f "$(SCP_SLIM)" ]; then \
 		if [ $(MAJOR_VER)$(MINOR_VER) -le 202 ]; then \
@@ -467,13 +495,28 @@ tianocore_capsule: tianocore_img dbukeys_auth dbbkeys_auth
 		-D UEFI_ATF_IMAGE=$(TIANOCORE_ATF_IMAGE) \
 		-D SCP_IMAGE=$(SCP_IMAGE) \
 		-p Platform/Ampere/$(BOARD_NAME_UFL)Pkg/$(BOARD_NAME_UFL)Capsule.dsc
-
-	@cp -f $(EDK2_FV_DIR)/JADEUEFIATFFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_UEFI_ATF_CAPSULE)
+	@cp -f $(EDK2_FV_DIR)/$(BOARD_NAME_UPPER)UEFIATFFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_UEFI_ATF_CAPSULE)
 	@cp -f $(EDK2_FV_DIR)/JADESCPFIRMWAREUPDATECAPSULEFMPPKCS7.Cap $(OUTPUT_SCP_CAPSULE)
 	@cp -f $(EDK2_AARCH64_DIR)/CapsuleApp.efi $(OUTPUT_CAPSULE_APP)
-	@$(MAKE) fw_cabinet REL_VER=$(VER).$(BUILD) COMPONENT=SCP CAP_FILE=$(OUTPUT_SCP_CAPSULE) CAB_FILE=$(subst cap,cab,$(OUTPUT_SCP_CAPSULE))
-	@$(MAKE) fw_cabinet REL_VER=$(VER).$(BUILD) COMPONENT=UEFI CAP_FILE=$(OUTPUT_UEFI_ATF_CAPSULE) CAB_FILE=$(subst cap,cab,$(OUTPUT_UEFI_ATF_CAPSULE))
+	@if [[ -f $(EDK2_AARCH64_DIR)/BoardVersion.efi ]]; then \
+		cp -f $(EDK2_AARCH64_DIR)/BoardVersion.efi $(OUTPUT_BOARDVERSION_APP); \
+	fi
+	@if [[ -f $(EDK2_AARCH64_DIR)/FwUi.efi ]]; then \
+		cp -f $(EDK2_AARCH64_DIR)/FwUi.efi $(OUTPUT_FWUI_APP); \
+	fi
 	@rm -f $(OUTPUT_RAW_IMAGE).sig $(OUTPUT_RAW_IMAGE).signed $(OUTPUT_RAW_IMAGE) $(OUTPUT_RAW_IMAGE).append \
 			$(SCP_IMAGE).append
+
+ifneq ($(wildcard $(RELEASE_DIR)),)
+	$(call copy2release, $(OUTPUT_UEFI_ATF_CAPSULE))
+	$(call copy2release, $(OUTPUT_SCP_CAPSULE))
+	$(call copy2release, $(OUTPUT_CAPSULE_APP))
+	$(call copy2release, $(OUTPUT_BOARDVERSION_APP))
+	$(call copy2release, $(OUTPUT_FWUI_APP))
+	$(call copy2release, $(RELEASE_NOTE))
+	$(call copy2release, $(RELEASE_README))
+	$(call copy2release, $(CAPSULE_SCRIPT))
+	@sed -i 's/%VER%.%BUILD%.*/$(VER).$(BUILD_COM)/' $(RELEASE_FILE)
+endif	
 
 # end of makefile
