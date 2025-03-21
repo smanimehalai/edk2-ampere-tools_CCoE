@@ -46,15 +46,10 @@ You need to download and install `cert_create` and `fiptool` from
 Arm Trusted Firmware.
 
 ```
-$ mkdir -p AtfTools
-$ cd AtfTools
-$ git init
-$ git remote add origin -f https://github.com/ARM-software/arm-trusted-firmware.git
-$ git config core.sparseCheckout true
-$ echo -ne "include/tools_share\nmake_helpers\ntools/cert_create\ntools/fiptool" > .git/info/sparse-checkout
-$ git -C . checkout --track origin/master
-$ make -C tools/cert_create CRTTOOL=cert_create
-$ make -C tools/fiptool FIPTOOL=fiptool
+$ git clone --depth 1 https://github.com/ARM-software/arm-trusted-firmware.git
+$ cd arm-trusted-firmware
+$ make -C tools/cert_create
+$ make -C tools/fiptool
 ```
 
 Set up your $PATH to include cert_create and fiptool from above.
@@ -91,8 +86,8 @@ Generating the final image with the following commands:
 
 ```
 $ dd bs=1024 count=2048 if=/dev/zero | tr "\000" "\377" > BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
-$ dd bs=1 conv=notrunc if=<ampere_atf_image_filepath> of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
-$ dd bs=1 seek=2031616 conv=notrunc if=BUILDS/jade_tianocore_atf/jade_board_setting.bin of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
+$ dd bs=1024 conv=notrunc if=<ampere_atf_image_filepath> of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
+$ dd bs=1024 seek=1984 conv=notrunc if=BUILDS/jade_tianocore_atf/jade_board_setting.bin of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
 $ dd bs=1024 seek=2048 if=BUILDS/jade_tianocore_atf/jade_tianocore.fip.signed of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
 
 Result: BUILDS/jade_tianocore_atf/jade_tianocore_atf.img
@@ -119,8 +114,8 @@ Result:
 For Ampere ATF version 1.05 and earlier
 ```
 $ dd bs=1024 count=2048 if=/dev/zero | tr "\000" "\377" > BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
-$ dd bs=1 conv=notrunc if=<ampere_atf_image_filepath> of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
-$ dd bs=1 seek=2031616 conv=notrunc if=BUILDS/jade_tianocore_atf/jade_board_setting.bin of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
+$ dd bs=1024 conv=notrunc if=<ampere_atf_image_filepath> of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
+$ dd bs=1024 seek=1984 conv=notrunc if=BUILDS/jade_tianocore_atf/jade_board_setting.bin of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
 $ dd bs=1024 seek=2048 if=BUILDS/jade_tianocore_atf/jade_tianocore.fip.signed of=BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
 $ openssl dgst -sha256 -sign Platform/Ampere/JadePkg/TestKeys/Dbu_AmpereTest.priv.pem -out BUILDS/jade_tianocore_atf/jade_tianocore_atf.img.sig BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img
 $ cat BUILDS/jade_tianocore_atf/jade_tianocore_atf.img.sig BUILDS/jade_tianocore_atf/jade_tianocore_atf.cap.img > Build/Jade/RELEASE_GCC5/jade_tianocore_atf.img.signed
